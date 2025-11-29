@@ -1,210 +1,146 @@
 #!/usr/bin/env python3
 """
-disk_stats.py : 디스크 통계/분석 보조 도구
+disk_stats.py : Clean Disk 보조 분석 도구
+사용법:
+    python3 disk_stats.py [TARGET_DIR] [TOP_N]
+
+- TARGET_DIR : 분석할 루트 디렉토리 (생략 시 현재 작업 디렉토리)
+- TOP_N      : 상위 N개 (생략 시 10)
 
 역할:
-- 특정 디렉토리 전체를 스캔해서
   1) 전체 파일 개수 / 총 용량
-  2) 용량 구간별(자잘한 파일 위주) 파일 수
-  3) 확장자별 용량 Top N
-  4) 중복 다운로드 의심 파일 개수 (이름에 (2), (3) 붙은 파일)
-  5) 스크린샷 추정 파일 개수(Screenshot, 스크린샷 등 이름 패턴)
-  6) 가장 큰 파일 Top N
-
-삭제는 하지 않고, **분석/리포트만 출력**.
+  2) 큰 파일 TOP N
+  3) 확장자별 통계 (개수 / 용량 기준 TOP N)
+  4) 작은 파일(예: 1MB 미만) 비율
 """
 
 import os
-import re
 import sys
 from collections import defaultdict
-from typing import Dict, List, Tuple
+from typing import List, Tuple, Dict
 
 
-DUP_PATTERN = re.compile(r".+\([0-9]+\)\.[^.]+$")  # 예: report(2).pdf
-SCREENSHOT_KEYWORDS = ["screenshot", "screen shot", "스크린샷", "스크린 샷"]
-
-
-def human_size(size_bytes: int) -> str:
-    """바이트를 사람이 보기 좋은 단위로."""
-    if size_bytes == 0:
+def human(size: int) -> str:
+    """바이트를 사람이 읽기 좋은 단위로 변환."""
+    if size <= 0:
         return "0B"
     units = ["B", "KB", "MB", "GB", "TB"]
-    idx = 0
-    s = float(size_bytes)
-    while s >= 1024 and idx < len(units) - 1:
+    s = float(size)
+    i = 0
+    while s >= 1024 and i < len(units) - 1:
         s /= 1024.0
-        idx += 1
-    return f"{s:.1f}{units[idx]}"
+        i += 1
+    return f"{s:.1f}{units[i]}"
 
 
-def size_bucket(size: int) -> str:
-    """
-    용량 구간 이름 리턴.
-    - 0 ~ 100KB
-    - 100KB ~ 1MB
-    - 1MB ~ 10MB
-    - 10MB ~ 100MB
-    - 100MB 이상
-    """
-    kb = 1024
-    mb = 1024 * kb
-    gb = 1024 * mb
-
-    if size < 100 * kb:
-        return "0~100KB"
-    elif size < 1 * mb:
-        return "100KB~1MB"
-    elif size < 10 * mb:
-        return "1MB~10MB"
-    elif size < 100 * mb:
-        return "10MB~100MB"
-    elif size < 1 * gb:
-        return "100MB~1GB"
-    else:
-        return "1GB 이상"
-
-
-def is_duplicate_name(filename: str) -> bool:
-    """다운로드 중복 파일 패턴 여부 (예: something(2).pdf)."""
-    return bool(DUP_PATTERN.match(filename))
-
-
-def is_screenshot_name(filename: str) -> bool:
-    """스크린샷일 것 같은 파일명인지 간단히 체크."""
-    lower = filename.lower()
-    return any(key in lower for key in SCREENSHOT_KEYWORDS)
-
-
-def walk_and_collect(root: str):
-    total_size = 0
-    file_count = 0
-
-    # 확장자별 통계
-    ext_sizes: Dict[str, int] = defaultdict(int)
-    ext_counts: Dict[str, int] = defaultdict(int)
-
-    # 용량 구간별 카운트
-    bucket_counts: Dict[str, int] = defaultdict(int)
-
-    # 중복 다운로드 / 스샷 카운트
-    duplicate_count = 0
-    screenshot_count = 0
-
-    # 대용량 파일 목록
-    big_files: List[Tuple[int, str]] = []
-
+def walk_files(root: str) -> List[Tuple[int, str]]:
+    """root 아래의 모든 파일 (size, path) 리스트를 반환."""
+    results: List[Tuple[int, str]] = []
     for dirpath, dirnames, filenames in os.walk(root):
         for name in filenames:
             path = os.path.join(dirpath, name)
             try:
                 st = os.stat(path)
-            except (FileNotFoundError, PermissionError):
-                # 권한 없거나 이미 삭제된 파일은 스킵
+            except (FileNotFoundError, PermissionError, OSError):
+                # 접근 불가/사라진 파일은 그냥 건너뜀
                 continue
+            results.append((st.st_size, path))
+    return results
 
-            size = st.st_size
-            total_size += size
-            file_count += 1
-            big_files.append((size, path))
 
-            # 확장자 통계
-            _, ext = os.path.splitext(name)
-            ext = ext.lower() if ext else "<no_ext>"
-            ext_sizes[ext] += size
-            ext_counts[ext] += 1
+def ext_of(path: str) -> str:
+    """확장자를 소문자로 반환 (없으면 '<noext>')"""
+    base = os.path.basename(path)
+    name, ext = os.path.splitext(base)
+    if not ext:
+        return "<noext>"
+    return ext.lower()
 
-            # 용량 구간 통계
-            bucket = size_bucket(size)
-            bucket_counts[bucket] += 1
 
-            # 중복 다운로드 패턴
-            if is_duplicate_name(name):
-                duplicate_count += 1
+def analyze(root: str, top_n: int = 10) -> None:
+    print(f"[disk_stats] 대상 디렉토리: {root}")
+    print(f"[disk_stats] 상위 N       : {top_n}")
+    print()
 
-            # 스크린샷 추정
-            if is_screenshot_name(name):
-                screenshot_count += 1
+    files = walk_files(root)
+    total_files = len(files)
+    total_size = sum(size for size, _ in files)
 
-    return (
-        total_size,
-        file_count,
-        ext_sizes,
-        ext_counts,
-        bucket_counts,
-        duplicate_count,
-        screenshot_count,
-        big_files,
+    print("① 전체 요약")
+    print(f"  - 파일 개수 : {total_files}")
+    print(f"  - 총 용량   : {human(total_size)}")
+    print()
+
+    if total_files == 0:
+        print("  분석할 파일이 없습니다.")
+        return
+
+    # ② 큰 파일 TOP N
+    files_sorted = sorted(files, key=lambda x: x[0], reverse=True)
+    print("② 큰 파일 TOP N")
+    for i, (size, path) in enumerate(files_sorted[:top_n], start=1):
+        print(f"  {i:2d}. {human(size):>8s}  {path}")
+    print()
+
+    # ③ 확장자별 통계
+    ext_stats: Dict[str, Dict[str, int]] = defaultdict(lambda: {"count": 0, "size": 0})
+    for size, path in files:
+        ext = ext_of(path)
+        ext_stats[ext]["count"] += 1
+        ext_stats[ext]["size"] += size
+
+    # 용량 기준 TOP N
+    ext_by_size = sorted(
+        ext_stats.items(),
+        key=lambda kv: kv[1]["size"],
+        reverse=True,
     )
 
+    print("③ 확장자별 통계 (용량 기준 TOP N)")
+    print("    확장자   파일수     총용량")
+    for ext, info in ext_by_size[:top_n]:
+        print(
+            f"  {ext:8s}  {info['count']:6d}  {human(info['size']):>8s}"
+        )
+    print()
 
-def main():
-    # 인자: [TARGET_DIR] [TOP_N]
-    if len(sys.argv) < 2:
-        print("사용법: python3 disk_stats.py [TARGET_DIR] [TOP_N]")
-        sys.exit(1)
+    # ④ 작은 파일(1MB 미만) 비율
+    SMALL_THRESHOLD = 1 * 1024 * 1024  # 1MB
+    small_files = [s for s, _ in files if s < SMALL_THRESHOLD]
+    cnt_small = len(small_files)
+    size_small = sum(small_files)
 
-    target = sys.argv[1]
-    if len(sys.argv) >= 3:
+    ratio_count = cnt_small / total_files * 100.0
+    ratio_size = (size_small / total_size * 100.0) if total_size > 0 else 0.0
+
+    print("④ 작은 파일(1MB 미만) 통계")
+    print(f"  - 작은 파일 개수 : {cnt_small} ({ratio_count:.1f}%)")
+    print(f"  - 작은 파일 용량 : {human(size_small)} ({ratio_size:.1f}% of total)")
+    print()
+
+    print("분석이 완료되었습니다.")
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    if len(args) >= 1:
+        root = args[0]
+    else:
+        root = os.getcwd()
+
+    if len(args) >= 2:
         try:
-            top_n = int(sys.argv[2])
+            top_n = int(args[1])
         except ValueError:
             top_n = 10
     else:
         top_n = 10
 
-    if not os.path.isdir(target):
-        print(f"디렉토리 아님: {target}")
+    if not os.path.isdir(root):
+        print(f"[에러] 디렉토리가 아닙니다: {root}")
         sys.exit(1)
 
-    print(f"[Python 분석 도구] 대상 디렉토리: {target}")
-    print("파일 정보를 수집하는 중입니다...\n")
-
-    (
-        total_size,
-        file_count,
-        ext_sizes,
-        ext_counts,
-        bucket_counts,
-        duplicate_count,
-        screenshot_count,
-        big_files,
-    ) = walk_and_collect(target)
-
-    # 1) 전체 요약
-    print("=== 1. 전체 요약 ===")
-    print(f"- 총 파일 개수 : {file_count}")
-    print(f"- 총 용량      : {human_size(total_size)}")
-    print(f"- 중복 다운로드 의심 파일 수 : {duplicate_count}")
-    print(f"- 스크린샷 추정 파일 수       : {screenshot_count}")
-    print()
-
-    # 2) 용량 구간별 파일 수
-    print("=== 2. 용량 구간별 파일 수 ===")
-    # 정렬: 대략 작은 구간부터 보기 좋게
-    order = ["0~100KB", "100KB~1MB", "1MB~10MB", "10MB~100MB", "100MB~1GB", "1GB 이상"]
-    for b in order:
-        c = bucket_counts.get(b, 0)
-        print(f"{b:10s} : {c}")
-    print()
-
-    # 3) 확장자별 Top N (용량 기준)
-    print(f"=== 3. 확장자별 용량 Top {top_n} ===")
-    sorted_ext = sorted(ext_sizes.items(), key=lambda x: x[1], reverse=True)
-    for ext, size in sorted_ext[:top_n]:
-        cnt = ext_counts[ext]
-        print(f"{ext:10s}  {human_size(size):>10s}  ({cnt}개)")
-    print()
-
-    # 4) 대용량 파일 Top N
-    print(f"=== 4. 대용량 파일 Top {top_n} ===")
-    big_files.sort(key=lambda x: x[0], reverse=True)
-    for i, (size, path) in enumerate(big_files[:top_n], start=1):
-        print(f"{i:2d}. {human_size(size):>10s}  {path}")
-    print()
-
-    print("※ 이 도구는 '삭제'는 하지 않고, 분석/리포트만 제공합니다.")
-    print("   (실제 정리/삭제는 clean-disk.sh의 메뉴에서 수행)")
+    analyze(root, top_n)
 
 
 if __name__ == "__main__":

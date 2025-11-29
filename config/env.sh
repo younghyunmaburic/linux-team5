@@ -1,23 +1,23 @@
-# 디스크 분석 기본 설정
+# config/env.sh
+# Clean Disk 환경 설정 파일
+# - 이 파일은 ./scripts/clean-disk.sh setup 으로 자동 생성/수정할 수 있음.
+# - 필요하면 수동으로 값들을 바꿔도 됨.
 
-# 1) 기본 분석 대상 디렉토리 (df, du 등에서 사용할 기본 경로)
-CMD_TARGET_DIR="$HOME"
+# 기본 분석 대상 디렉토리 (설정 안 하면 OS별 Desktop 자동 추론 사용)
+# CMD_TARGET_DIR="$HOME/Desktop"
 
-# 2) 상위 몇 개의 대용량 디렉토리를 보여줄지
-CMD_TOP_N=10
+# topdirs / topfiles 에서 보여줄 상위 개수
+# CMD_TOP_N=10
 
-# 3) 로그 디렉토리
-CMD_LOG_DIR="logs"
+# 로그 디렉토리 (프로젝트 기준 상대경로)
+# CMD_LOG_DIR="logs"
 
-# 4) dry-run 모드 (1이면 실제 삭제 X, 미리보기/목록만 출력)
-CMD_DRY_RUN=1
+# dry-run 모드 (1 = 삭제 안 함, 0 = 실제 삭제)
+# CMD_DRY_RUN=1
 
-# 5) 중복 다운로드 파일을 찾을 디렉토리 (보통 Downloads)
-CMD_DOWNLOAD_DIR="$HOME/Downloads"
+# 중복 다운로드 의심 파일을 찾을 디렉토리
+# CMD_DOWNLOAD_DIR="$HOME/Downloads"
 
-# 6) 스크린샷이 저장되는 디렉토리 (리눅스 환경에 따라 맞춰서 수정)
-#   예) GNOME 기본: $HOME/Pictures, $HOME/Pictures/Screenshots 등
-CMD_SCREENSHOT_DIR="$HOME/Pictures/Screenshots"
-
-# 7) 스크린샷 정리 대상 기준 (며칠 이전 파일을 후보로 볼 것인지)
-CMD_SCREENSHOT_DAYS=30
+# 스크린샷 정리 대상 디렉토리와 기준 일수
+# CMD_SCREENSHOT_DIR="$HOME/Desktop"
+# CMD_SCREENSHOT_DAYS=30
