@@ -295,8 +295,18 @@ EOF
 # ---------------------------
 
 analyze_disk_overview() {
-    log "[df] 전체 디스크 사용량(df -h)"
-    df -h | tee -a "$LOG_FILE"
+    log "[df] 대상 디렉토리 기준 디스크 사용량"
+
+    echo ">>> 분석 대상 디렉토리: $CMD_TARGET_DIR"
+    echo
+
+    # 1) CMD_TARGET_DIR가 올라가 있는 파일시스템의 사용량만 표시
+    df -h "$CMD_TARGET_DIR" | tee -a "$LOG_FILE"
+    echo
+
+    # 2) 그 디렉토리 자체의 용량도 같이 보여주기
+    echo ">>> 분석 대상 디렉토리 자체 용량"
+    du -sh "$CMD_TARGET_DIR" 2>/dev/null | tee -a "$LOG_FILE"
     echo
 }
 
