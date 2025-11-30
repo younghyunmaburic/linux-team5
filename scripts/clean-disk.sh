@@ -25,6 +25,22 @@ DEFAULT_LOG_DIR="$PROJECT_ROOT/logs"
 
 mkdir -p "$DEFAULT_LOG_DIR"
 
+DELETE_MODULE="$SCRIPT_DIR/delete_module.sh"
+if [[ -f "$DELETE_MODULE" ]]; then
+    # shellcheck source=/dev/null
+    source "$DELETE_MODULE"
+
+    # delete_module.sh 안의 clean_logs가 쓸 로그 경로를 프로젝트 루트 기준으로 맞춰줌 (선택사항)
+    if declare -F clean_logs &>/dev/null; then
+        LOG_DIR="$DEFAULT_LOG_DIR"
+        TIMESTAMP="$(date +'%Y-%m-%d_%H%M')"
+        REPORT_FILE="$LOG_DIR/cleanup_report_$TIMESTAMP.txt"
+        mkdir -p "$LOG_DIR"
+    fi
+else
+    :
+fi
+
 # ---------------------------
 # 0-1. OS 감지 / Desktop 경로 자동 탐색
 # ---------------------------
@@ -110,17 +126,61 @@ if [[ -f "$CONFIG_FILE" ]]; then
     source "$CONFIG_FILE"
 fi
 
-: "${CMD_TARGET_DIR:="$DEFAULT_DESKTOP_DIR"}"
-: "${CMD_TOP_N:=10}"
-: "${CMD_LOG_DIR:="$DEFAULT_LOG_DIR"}"
-: "${CMD_DRY_RUN:=1}"
-
 : "${CMD_DOWNLOAD_DIR:="$DEFAULT_DESKTOP_DIR"}"
-: "${CMD_SCREENSHOT_DIR:="$DEFAULT_DESKTOP_DIR"}"
 : "${CMD_SCREENSHOT_DAYS:=30}"
+
+# ----- 스크린샷 경로 자동 감지 (env.sh에 값 없을 때만) -----
+if [[ -z "${CMD_SCREENSHOT_DIR:-}" ]]; then
+    case "$OS_KIND" in
+        macOS)
+            # macOS: 시스템에 설정된 스크린샷 위치 읽기
+            if command -v defaults &>/dev/null; then
+                ss_dir="$(defaults read com.apple.screencapture location 2>/dev/null || true)"
+                if [[ -n "$ss_dir" && -d "$ss_dir" ]]; then
+                    CMD_SCREENSHOT_DIR="$ss_dir"
+                else
+                    CMD_SCREENSHOT_DIR="$DEFAULT_DESKTOP_DIR"
+                fi
+            else
+                CMD_SCREENSHOT_DIR="$DEFAULT_DESKTOP_DIR"
+            fi
+            ;;
+        GitBash)
+            # Windows + Git Bash 환경 (추측입니다: 일반적인 기본값 기준)
+            if [[ -n "${USERPROFILE:-}" ]]; then
+                win_ss="${USERPROFILE}\\Pictures\\Screenshots"
+                if command -v cygpath &>/dev/null; then
+                    ss_dir="$(cygpath "$win_ss" 2>/dev/null || echo "")"
+                else
+                    ss_dir=""
+                fi
+
+                if [[ -n "$ss_dir" && -d "$ss_dir" ]]; then
+                    CMD_SCREENSHOT_DIR="$ss_dir"
+                else
+                    # 기본 Screenshots 폴더가 없으면 Desktop으로 fallback
+                    if command -v cygpath &>/dev/null; then
+                        win_desktop="${USERPROFILE}\\Desktop"
+                        desk_dir="$(cygpath "$win_desktop" 2>/dev/null || echo "")"
+                        CMD_SCREENSHOT_DIR="${desk_dir:-$DEFAULT_DESKTOP_DIR}"
+                    else
+                        CMD_SCREENSHOT_DIR="$DEFAULT_DESKTOP_DIR"
+                    fi
+                fi
+            else
+                CMD_SCREENSHOT_DIR="$DEFAULT_DESKTOP_DIR"
+            fi
+            ;;
+        *)
+            # Linux/WSL 등은 OS별 Desktop 자동 추론값 사용
+            CMD_SCREENSHOT_DIR="$DEFAULT_DESKTOP_DIR"
+            ;;
+    esac
+fi
 
 mkdir -p "$CMD_LOG_DIR"
 LOG_FILE="$CMD_LOG_DIR/clean-disk-$(date +'%Y%m%d_%H%M%S').log"
+
 
 # ---------------------------
 # 1. 공통 유틸
@@ -461,20 +521,21 @@ clean_screenshots() {
 show_menu() {
     print_header
     echo "[설정/설치]"
-    echo " 0) setup   : 설정 마법사 (env.sh 생성/수정)"
+    echo " 0) setup     : 설정 마법사 (env.sh 생성/수정)"
     echo
     echo "[분석 기능]"
-    echo " 1) df      : 전체 디스크 사용량(df -h)"
-    echo " 2) topdirs : 큰 디렉토리 TOP N"
-    echo " 3) topfiles: 큰 파일 TOP N"
-    echo " 4) old     : 오래된 파일 목록(days 기준)"
-    echo " 5) python  : Python 보조 도구 통계"
+    echo " 1) df        : 전체 디스크 사용량(df -h)"
+    echo " 2) topdirs   : 큰 디렉토리 TOP N"
+    echo " 3) topfiles  : 큰 파일 TOP N"
+    echo " 4) old       : 오래된 파일 목록(days 기준)"
+    echo " 5) python    : Python 보조 도구 통계"
     echo
-    echo "[정리 후보 기능]"
-    echo " 6) dup     : 중복 다운로드 의심 파일"
-    echo " 7) shots   : 오래된 스크린샷 후보"
+    echo "[정리/삭제 기능]"
+    echo " 6) dup       : 중복 다운로드 의심 파일"
+    echo " 7) shots     : 오래된 스크린샷 후보"
+    echo " 8) autoclean : 로그/캐시 자동 정리 + 리포트(파트너 모듈)"
     echo
-    echo " 8) 종료"
+    echo " 9) 종료"
     echo
     read -rp "메뉴를 선택하세요: " choice
 
@@ -487,10 +548,26 @@ show_menu() {
         5) cmd_python_stats;         pause ;;
         6) find_duplicate_downloads ;;
         7) clean_screenshots ;;
-        8) log "프로그램을 종료합니다."; exit 0 ;;
-        *) echo "잘못된 입력입니다."; sleep 1 ;;
+        8)
+            if declare -F clean_logs &>/dev/null; then
+                clean_logs
+            else
+                echo "autoclean 기능을 사용할 수 없습니다."
+                echo "→ scripts/delete_module.sh 가 없거나 clean_logs 함수가 정의되어 있지 않습니다."
+            fi
+            pause
+            ;;
+        9)
+            log "프로그램을 종료합니다."
+            exit 0
+            ;;
+        *)
+            echo "잘못된 입력입니다."
+            sleep 1
+            ;;
     esac
 }
+
 
 main_menu_loop() {
     while true; do
@@ -527,11 +604,20 @@ dispatch_cli() {
         shots)
             clean_screenshots
             ;;
+        autoclean)
+            if declare -F clean_logs &>/dev/null; then
+                clean_logs
+            else
+                echo "autoclean 기능을 사용할 수 없습니다."
+                echo "→ scripts/delete_module.sh 가 없거나 clean_logs 함수가 정의되어 있지 않습니다."
+            fi
+            ;;
         menu|*)
             main_menu_loop
             ;;
     esac
 }
+
 
 main() {
     if [[ $# -gt 0 ]]; then
