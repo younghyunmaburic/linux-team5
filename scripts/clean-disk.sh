@@ -126,6 +126,12 @@ if [[ -f "$CONFIG_FILE" ]]; then
     source "$CONFIG_FILE"
 fi
 
+# env.sh에 없으면 기본값으로 세팅
+: "${CMD_TARGET_DIR:="$DEFAULT_DESKTOP_DIR"}"
+: "${CMD_TOP_N:=10}"
+: "${CMD_LOG_DIR:="$DEFAULT_LOG_DIR"}"
+: "${CMD_DRY_RUN:=1}"
+
 : "${CMD_DOWNLOAD_DIR:="$DEFAULT_DESKTOP_DIR"}"
 : "${CMD_SCREENSHOT_DAYS:=30}"
 
@@ -549,14 +555,15 @@ show_menu() {
         6) find_duplicate_downloads ;;
         7) clean_screenshots ;;
         8)
-            if declare -F clean_logs &>/dev/null; then
-                clean_logs
-            else
-                echo "autoclean 기능을 사용할 수 없습니다."
-                echo "→ scripts/delete_module.sh 가 없거나 clean_logs 함수가 정의되어 있지 않습니다."
-            fi
-            pause
-            ;;
+        if declare -F clean_logs &>/dev/null; then
+            # clean_logs 내부에서 에러가 나도 스크립트 전체가 죽지 않도록 서브쉘 + set +e
+            ( set +e; clean_logs )
+        else
+            echo "autoclean 기능을 사용할 수 없습니다."
+            echo "→ scripts/delete_module.sh 가 없거나 clean_logs 함수가 정의되어 있지 않습니다."
+        fi
+        pause
+        ;;
         9)
             log "프로그램을 종료합니다."
             exit 0
@@ -606,10 +613,10 @@ dispatch_cli() {
             ;;
         autoclean)
             if declare -F clean_logs &>/dev/null; then
-                clean_logs
+                ( set +e; clean_logs )
             else
-                echo "autoclean 기능을 사용할 수 없습니다."
-                echo "→ scripts/delete_module.sh 가 없거나 clean_logs 함수가 정의되어 있지 않습니다."
+                 echo "autoclean 기능을 사용할 수 없습니다."
+                 echo "→ scripts/delete_module.sh 가 없거나 clean_logs 함수가 정의되어 있지 않습니다."
             fi
             ;;
         menu|*)
