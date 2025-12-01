@@ -13,9 +13,10 @@ echo "  Clean-My-Disk 실행 도우미"
 echo "========================================"
 echo "1.   초기 설정 (준비 중...)"
 echo "2.  디스크 정리 시작 (Start)"
-echo "3.  종료 (Exit)"
+echo "3.  정리 리포트 통계 보기 (New!)"
+echo "4.  종료 (Exit)"
 echo "----------------------------------------"
-read -p "원하는 기능을 선택하세요 (1-3): " choice
+read -p "원하는 기능을 선택하세요 (1-4): " choice  # <--- (1-4)로 수정함
 
 case $choice in
     1)
@@ -29,11 +30,20 @@ case $choice in
         ./scripts/clean-disk.sh
         ;;
     3)
+        echo " 정리 리포트를 분석합니다..."
+        # 파이썬 스크립트 실행 (python3가 없으면 python으로 시도)
+        if command -v python3 &> /dev/null; then
+            python3 tools/stats.py logs
+        else
+            python tools/stats.py logs
+        fi
+        ;;
+    4)
         echo "종료합니다."
         exit 0
         ;;
     *)
-        echo "잘못된 입력입니다."
+        echo "잘못된 입력입니다. 1~4번 중에서 선택해주세요."
         ;;
 esac
 
