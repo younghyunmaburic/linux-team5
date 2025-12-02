@@ -1,6 +1,6 @@
-
 #!/usr/bin/env bash
 # Clean Disk: base script (skeleton)
+# - 기본 뼈대 + env.sh 로딩만 구현
 
 set -euo pipefail
 
@@ -13,7 +13,7 @@ DEFAULT_LOG_DIR="$PROJECT_ROOT/logs"
 
 mkdir -p "$DEFAULT_LOG_DIR"
 
- env.sh 있으면 로딩
+# env.sh 있으면 로딩
 if [[ -f "$CONFIG_FILE" ]]; then
   # shellcheck source=/dev/null
   source "$CONFIG_FILE"
@@ -75,4 +75,3 @@ main() {
 }
 
 main "$@"
-EOF
