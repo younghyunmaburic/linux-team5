@@ -13,6 +13,7 @@ VERSION="0.3.0"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIG_FILE="$PROJECT_ROOT/config/env.sh"
+
 TOOLS_DIR="$PROJECT_ROOT/tools"
 DEFAULT_LOG_DIR="$PROJECT_ROOT/logs"
 
@@ -45,7 +46,7 @@ pause() {
 print_header() {
   clear
   echo "======================================"
-  echo "   Clean Disk (disk + python stats)"
+  echo "       Clean Disk (disk analysis)"
   echo "======================================"
   echo "  분석 대상 : $CMD_TARGET_DIR"
   echo "  로그 파일 : $LOG_FILE"
@@ -63,11 +64,11 @@ analyze_disk_overview() {
   echo ">>> 분석 대상 디렉토리: $CMD_TARGET_DIR"
   echo
 
-  # 1) CMD_TARGET_DIR가 올라가 있는 파일시스템의 사용량
+  # 1) CMD_TARGET_DIR가 올라가 있는 파일시스템의 사용량만 표시
   df -h "$CMD_TARGET_DIR" | tee -a "$LOG_FILE"
   echo
 
-  # 2) 그 디렉토리 자체의 용량
+  # 2) 그 디렉토리 자체의 용량도 같이 보여주기
   echo ">>> 분석 대상 디렉토리 자체 용량"
   du -sh "$CMD_TARGET_DIR" 2>/dev/null | tee -a "$LOG_FILE"
   echo
@@ -92,7 +93,7 @@ cmd_topdirs() {
 }
 
 # ---------------------------
-# 3) topfiles: 큰 파일 TOP N (간단 버전, Bash-only)
+# 3) topfiles: 큰 파일 TOP N (간단 버전, 파이썬 X)
 # ---------------------------
 cmd_topfiles() {
   local n="${1:-$CMD_TOP_N}"
@@ -101,11 +102,12 @@ cmd_topfiles() {
   echo ">>> [topfiles] $CMD_TARGET_DIR 하위 큰 파일 상위 ${n}개"
   echo
 
-  # GNU find 기준 (-printf). macOS에서는 gfind를 쓰거나, 이 부분은 Linux 중심이라고 보고 감안.
+  # find + sort 조합으로 간단히 구현 (파이썬 통계는 다음 브랜치에서)
   find "$CMD_TARGET_DIR" -type f -printf '%s %p\n' 2>/dev/null \
     | sort -nr \
     | head -n "$n" \
     | awk '{
+        # 크기를 사람이 읽기 좋은 단위로 대략 변환
         sz=$1; path=$2;
         unit="B";
         if (sz>1024){sz/=1024;unit="KB"}
@@ -137,30 +139,6 @@ cmd_old() {
 }
 
 # ---------------------------
-# 5) python: Python 보조 도구(disk_stats.py) 실행
-# ---------------------------
-cmd_python_stats() {
-  log "[python] Python 보조 도구(disk_stats.py) 실행"
-
-  if ! command -v python3 &>/dev/null; then
-    echo "python3 명령을 찾을 수 없습니다. Python이 설치되어 있는지 확인하세요." | tee -a "$LOG_FILE"
-    echo
-    return
-  fi
-
-  local target="$CMD_TARGET_DIR"
-  local top_n="$CMD_TOP_N"
-
-  echo ">>> [python] 분석 도구 실행:"
-  echo "    - 대상 디렉토리: $target"
-  echo "    - 상위 파일/확장자 개수: $top_n"
-  echo
-
-  python3 "$TOOLS_DIR/disk_stats.py" "$target" "$top_n" | tee -a "$LOG_FILE"
-  echo
-}
-
-# ---------------------------
 # 메뉴
 # ---------------------------
 show_menu() {
@@ -168,9 +146,8 @@ show_menu() {
   echo "[분석 기능]"
   echo " 1) df        : 대상 디렉토리 기준 디스크 사용량"
   echo " 2) topdirs   : 큰 디렉토리 TOP N"
-  echo " 3) topfiles  : 큰 파일 TOP N (Bash 버전)"
+  echo " 3) topfiles  : 큰 파일 TOP N"
   echo " 4) old       : 오래된 파일 목록(days 기준)"
-  echo " 5) python    : Python 보조 통계 도구(disk_stats.py)"
   echo
   echo " 9) 종료"
   echo
@@ -186,7 +163,6 @@ show_menu() {
        cmd_old "$d"
        pause
        ;;
-    5) cmd_python_stats;      pause ;;
     9)
        log "프로그램을 종료합니다."
        exit 0
