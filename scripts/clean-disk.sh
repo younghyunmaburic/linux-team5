@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
-# clean-disk.sh : 데스크탑/사용자 디렉토리 정리·분석 도구
-# - 박성현 담당:
-#   1) 메인 스크립트 기본 구조
-#   2) 환경 변수 로딩 (config/env.sh)
-#   3) 디스크 분석 기능 (df / topdirs / topfiles / old)
-#   4) Python 보조 도구(disk_stats.py) 연동 (이 브랜치 포인트)
+
+# Clean Disk: base script (skeleton)
+# - 기본 뼈대 + env.sh 로딩만 구현
 
 set -euo pipefail
 
@@ -19,7 +16,7 @@ DEFAULT_LOG_DIR="$PROJECT_ROOT/logs"
 
 mkdir -p "$DEFAULT_LOG_DIR"
 
-# env.sh 로딩
+# env.sh 있으면 로딩
 if [[ -f "$CONFIG_FILE" ]]; then
   # shellcheck source=/dev/null
   source "$CONFIG_FILE"
