@@ -31,6 +31,9 @@ fi
 : "${CMD_TOP_N:=10}"
 : "${CMD_LOG_DIR:="$DEFAULT_LOG_DIR"}"
 : "${CMD_DRY_RUN:=1}"
+: "${CMD_DOWNLOAD_DIR:="$HOME/Downloads"}"
+: "${CMD_SCREENSHOT_DIR:="$CMD_TARGET_DIR"}"
+: "${CMD_SCREENSHOT_DAYS:=30}"
 
 mkdir -p "$CMD_LOG_DIR"
 LOG_FILE="$CMD_LOG_DIR/clean-disk-$(date +'%Y%m%d_%H%M%S').log"
@@ -164,6 +167,117 @@ cmd_python_stats() {
 }
 
 # ---------------------------
+# 6) dup: 중복 다운로드 의심 파일 찾기
+# ---------------------------
+find_duplicate_downloads() {
+  local dir="$CMD_DOWNLOAD_DIR"
+
+  log "[dup] 중복 다운로드 의심 파일 검색: $dir"
+
+  if [[ ! -d "$dir" ]]; then
+    echo "중복 다운로드 디렉토리($dir)를 찾을 수 없습니다." | tee -a "$LOG_FILE"
+    echo
+    pause
+    return
+  fi
+
+  echo ">>> $dir 내에서 report(2).pdf 같은 파일을 찾습니다."
+  echo
+
+  local count=0
+
+  while IFS= read -r path; do
+    local base="${path##*/}"
+    if [[ "$base" =~ ^.+\([0-9]+\)\.[^.]+$ ]]; then
+      ((count++))
+      echo "[$count] $path"
+
+      if [[ "$CMD_DRY_RUN" -eq 0 ]]; then
+        read -rp "  → 삭제할까요? [y/N]: " ans
+        case "$ans" in
+          y|Y)
+            rm -v -- "$path" | tee -a "$LOG_FILE"
+            ;;
+          *)
+            echo "  유지함."
+            ;;
+        esac
+      fi
+    fi
+  done < <(find "$dir" -maxdepth 1 -type f 2>/dev/null)
+
+  if [[ "$count" -eq 0 ]]; then
+    echo "중복 다운로드 의심 파일을 찾지 못했습니다."
+  else
+    echo
+    echo "총 ${count}개의 중복 다운로드 의심 파일을 찾았습니다."
+    if [[ "$CMD_DRY_RUN" -eq 1 ]]; then
+      echo "(현재 dry-run 모드이므로 실제 삭제는 하지 않았습니다.)"
+    fi
+  fi
+
+  echo
+  pause
+}
+
+# ---------------------------
+# 7) shots: 오래된 스크린샷 정리 후보
+# ---------------------------
+clean_screenshots() {
+  local dir="$CMD_SCREENSHOT_DIR"
+  local days="$CMD_SCREENSHOT_DAYS"
+
+  log "[shots] ${days}일 이전 스크린샷 후보 검색: $dir"
+
+  if [[ ! -d "$dir" ]]; then
+    echo "스크린샷 디렉토리($dir)를 찾을 수 없습니다." | tee -a "$LOG_FILE"
+    echo
+    pause
+    return
+  fi
+
+  echo ">>> $dir 안에서 ${days}일 이전의 스크린샷을 찾습니다."
+  echo
+
+  mapfile -t candidates < <(find "$dir" -maxdepth 1 -type f -mtime +"$days" 2>/dev/null | sort)
+  local count="${#candidates[@]}"
+
+  if [[ "$count" -eq 0 ]]; then
+    echo "${days}일 이전 스크린샷 후보가 없습니다."
+    echo
+    pause
+    return
+  fi
+
+  echo "=== 정리 후보 스크린샷 (${count}개) ==="
+  printf '%s\n' "${candidates[@]}"
+  echo
+
+  if [[ "$CMD_DRY_RUN" -eq 1 ]]; then
+    echo "(dry-run 모드이므로 실제 삭제는 하지 않습니다.)"
+    echo
+    pause
+    return
+  fi
+
+  read -rp "위 파일을 모두 삭제할까요? [y/N]: " ans
+  case "$ans" in
+    y|Y)
+      for path in "${candidates[@]}"; do
+        rm -v -- "$path" | tee -a "$LOG_FILE"
+      done
+      echo "스크린샷 정리가 완료되었습니다."
+      ;;
+    *)
+      echo "삭제를 취소했습니다."
+      ;;
+  esac
+
+  echo
+  pause
+}
+
+# ---------------------------
 # 메뉴
 # ---------------------------
 show_menu() {
@@ -174,6 +288,8 @@ show_menu() {
   echo " 3) topfiles  : 큰 파일 TOP N (Bash 버전)"
   echo " 4) old       : 오래된 파일 목록(days 기준)"
   echo " 5) python    : Python 보조 통계 도구(disk_stats.py)"
+  echo " 6) dup       : 중복 다운로드 의심 파일"
+  echo " 7) shots     : 오래된 스크린샷 후보"
   echo
   echo " 9) 종료"
   echo
@@ -190,6 +306,8 @@ show_menu() {
        pause
        ;;
     5) cmd_python_stats;      pause ;;
+    6) find_duplicate_downloads ;;
+    7) clean_screenshots ;;
     9)
        log "프로그램을 종료합니다."
        exit 0
