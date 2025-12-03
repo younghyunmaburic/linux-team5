@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
-# Clean Disk: base + disk analysis features
-# - 메인 구조 + env 로딩
-# - 디스크 분석 기능(df / topdirs / topfiles / old)
+# clean-disk.sh : 데스크탑/사용자 디렉토리 정리·분석 도구
+# - 박성현 담당:
+#   1) 메인 스크립트 기본 구조
+#   2) 환경 변수 로딩 (config/env.sh)
+#   3) 디스크 분석 기능 (df / topdirs / topfiles / old)
+#   4) Python 보조 도구(disk_stats.py) 연동 (이 브랜치 포인트)
 
 set -euo pipefail
 
-VERSION="0.2.0"
+VERSION="0.3.0"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIG_FILE="$PROJECT_ROOT/config/env.sh"
+
+TOOLS_DIR="$PROJECT_ROOT/tools"
 DEFAULT_LOG_DIR="$PROJECT_ROOT/logs"
 
 mkdir -p "$DEFAULT_LOG_DIR"
@@ -20,6 +25,7 @@ if [[ -f "$CONFIG_FILE" ]]; then
   source "$CONFIG_FILE"
 fi
 
+# env.sh에 없으면 기본값
 : "${CMD_TARGET_DIR:="$HOME"}"
 : "${CMD_TOP_N:=10}"
 : "${CMD_LOG_DIR:="$DEFAULT_LOG_DIR"}"
