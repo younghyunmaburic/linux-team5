@@ -214,7 +214,7 @@ print_header() {
     echo "  TOP N         : $CMD_TOP_N"
     echo "  다운로드 경로 : $CMD_DOWNLOAD_DIR"
     echo "  스크린샷 경로 : $CMD_SCREENSHOT_DIR"
-    echo "  스샷 기준일수 : $CMD_SCREENSHOT_DAYS일 이전"
+    echo "  스샷 기준일수 : $CMD_SCREENSHOT_DAYS 일 이전"
     echo "  dry-run 모드  : $CMD_DRY_RUN"
     echo "======================================"
     echo
