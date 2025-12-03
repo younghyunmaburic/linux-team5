@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # clean-disk.sh : 데스크탑/사용자 디렉토리 정리·분석 도구
 # - 박성현 담당:
 #   1) 메인 스크립트 기본 구조
@@ -107,6 +108,7 @@ cmd_topfiles() {
     | sort -nr \
     | head -n "$n" \
     | awk '{
+        # 크기를 사람이 읽기 좋은 단위로 대략 변환
         sz=$1; path=$2;
         unit="B";
         if (sz>1024){sz/=1024;unit="KB"}
