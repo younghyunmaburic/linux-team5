@@ -99,13 +99,7 @@ def analyze(root: str, top_n: int = 10) -> None:
     print("③ 확장자별 통계 (용량 기준 TOP N)")
     print("    확장자   파일수     총용량")
     for ext, info in ext_by_size[:top_n]:
-<<<<<<< HEAD
-        print(
-            f"  {ext:8s}  {info['count']:6d}  {human(info['size']):>8s}"
-        )
-=======
         print(f"  {ext:8s}  {info['count']:6d}  {human(info['size']):>8s}")
->>>>>>> 507e433 (feat: 파이썬 통계 도구 disk_stats.py 구현)
     print()
 
     # ④ 작은 파일(1MB 미만) 비율
@@ -148,8 +142,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-<<<<<<< HEAD
     main()
-=======
-    main()
->>>>>>> 507e433 (feat: 파이썬 통계 도구 disk_stats.py 구현)

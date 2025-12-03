@@ -1,3 +1,4 @@
+# Conflict
 # 자동 생성된 Clean Disk 설정 파일 (기본값 템플릿)
 
 # 1) 기본 분석 대상 디렉토리 (보통 홈이나 Desktop)
