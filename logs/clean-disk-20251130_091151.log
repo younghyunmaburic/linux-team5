@@ -1,0 +1,20 @@
+[2025-11-30 09:11:56] [df] 전체 디스크 사용량(df -h)
+Filesystem                         Size  Used Avail Use% Mounted on
+tmpfs                              391M  1.3M  390M   1% /run
+efivarfs                           256K   32K  225K  13% /sys/firmware/efi/efivars
+/dev/mapper/ubuntu--vg-ubuntu--lv  9.8G  5.1G  4.3G  55% /
+tmpfs                              2.0G     0  2.0G   0% /dev/shm
+tmpfs                              5.0M     0  5.0M   0% /run/lock
+/dev/nvme0n1p2                     1.7G  191M  1.4G  12% /boot
+/dev/nvme0n1p1                     952M  6.4M  945M   1% /boot/efi
+tmpfs                              391M   12K  391M   1% /run/user/1000
+[2025-11-30 09:12:36] [df] 전체 디스크 사용량(df -h)
+Filesystem                         Size  Used Avail Use% Mounted on
+tmpfs                              391M  1.3M  390M   1% /run
+efivarfs                           256K   32K  225K  13% /sys/firmware/efi/efivars
+/dev/mapper/ubuntu--vg-ubuntu--lv  9.8G  5.1G  4.3G  55% /
+tmpfs                              2.0G     0  2.0G   0% /dev/shm
+tmpfs                              5.0M     0  5.0M   0% /run/lock
+/dev/nvme0n1p2                     1.7G  191M  1.4G  12% /boot
+/dev/nvme0n1p1                     952M  6.4M  945M   1% /boot/efi
+tmpfs                              391M   12K  391M   1% /run/user/1000
