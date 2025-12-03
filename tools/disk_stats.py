@@ -14,7 +14,7 @@ disk_stats.py : Clean Disk 보조 분석 도구
   4) 작은 파일(예: 1MB 미만) 비율
 """
 
-# Git Merge Conflict 해결 
+# Conflict
 
 import os
 import sys
